@@ -260,9 +260,9 @@ export default function Auth() {
 
           <div className="text-center text-sm text-muted-foreground">
             By clicking continue, you agree to our{" "}
-            <a href="#" className="underline hover:text-primary">Terms of Service</a>{" "}
+            <Link href="/terms" className="underline hover:text-primary">Terms of Service</Link>{" "}
             and{" "}
-            <a href="#" className="underline hover:text-primary">Privacy Policy</a>.
+            <Link href="/privacy" className="underline hover:text-primary">Privacy Policy</Link>.
           </div>
         </div>
       </div>

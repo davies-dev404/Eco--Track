@@ -5,7 +5,7 @@ export function Footer() {
   return (
     <footer className="border-t bg-muted/30">
       <div className="container mx-auto px-4 py-12 md:px-6">
-        <div className="grid gap-8 md:grid-cols-4 lg:gap-12">
+        <div className="grid gap-8 md:grid-cols-5 lg:gap-12">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -35,6 +35,14 @@ export function Footer() {
               <li><Link href="/blog" className="hover:text-primary">Blog</Link></li>
               <li><Link href="/careers" className="hover:text-primary">Careers</Link></li>
               <li><Link href="/contact" className="hover:text-primary">Contact</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider">Legal</h3>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li><Link href="/terms" className="hover:text-primary">Terms of Service</Link></li>
+              <li><Link href="/privacy" className="hover:text-primary">Privacy Policy</Link></li>
             </ul>
           </div>
 

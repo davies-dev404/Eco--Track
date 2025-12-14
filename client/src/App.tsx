@@ -16,6 +16,8 @@ import Blog from "@/pages/Blog";
 import Careers from "@/pages/Careers";
 import Contact from "@/pages/Contact";
 import DashboardLayout from "@/pages/Dashboard";
+import TermsOfService from "@/pages/TermsOfService";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
 
 function Router() {
   return (
@@ -30,6 +32,8 @@ function Router() {
       <Route path="/blog" component={Blog} />
       <Route path="/careers" component={Careers} />
       <Route path="/contact" component={Contact} />
+      <Route path="/terms" component={TermsOfService} />
+      <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/auth" component={Auth} />
       <Route path="/dashboard*" component={DashboardLayout} />
       <Route component={NotFound} />
