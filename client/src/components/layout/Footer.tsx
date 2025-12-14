@@ -1,4 +1,5 @@
 import { Leaf, Github, Twitter, Linkedin } from "lucide-react";
+import { Link } from "wouter";
 
 export function Footer() {
   return (
@@ -20,20 +21,20 @@ export function Footer() {
           <div>
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider">Product</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#" className="hover:text-primary">Features</a></li>
-              <li><a href="#" className="hover:text-primary">Pricing</a></li>
-              <li><a href="#" className="hover:text-primary">Enterprise</a></li>
-              <li><a href="#" className="hover:text-primary">Case Studies</a></li>
+              <li><Link href="/features" className="hover:text-primary">Features</Link></li>
+              <li><Link href="/pricing" className="hover:text-primary">Pricing</Link></li>
+              <li><Link href="/enterprise" className="hover:text-primary">Enterprise</Link></li>
+              <li><Link href="/case-studies" className="hover:text-primary">Case Studies</Link></li>
             </ul>
           </div>
 
           <div>
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider">Company</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#" className="hover:text-primary">About</a></li>
-              <li><a href="#" className="hover:text-primary">Blog</a></li>
-              <li><a href="#" className="hover:text-primary">Careers</a></li>
-              <li><a href="#" className="hover:text-primary">Contact</a></li>
+              <li><Link href="/about" className="hover:text-primary">About</Link></li>
+              <li><Link href="/blog" className="hover:text-primary">Blog</Link></li>
+              <li><Link href="/careers" className="hover:text-primary">Careers</Link></li>
+              <li><Link href="/contact" className="hover:text-primary">Contact</Link></li>
             </ul>
           </div>
 

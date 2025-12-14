@@ -8,14 +8,28 @@ import Landing from "@/pages/Landing";
 import Auth from "@/pages/Auth";
 import Impact from "@/pages/Impact";
 import About from "@/pages/About";
+import Features from "@/pages/Features";
+import Pricing from "@/pages/Pricing";
+import Enterprise from "@/pages/Enterprise";
+import CaseStudies from "@/pages/CaseStudies";
+import Blog from "@/pages/Blog";
+import Careers from "@/pages/Careers";
+import Contact from "@/pages/Contact";
 import DashboardLayout from "@/pages/Dashboard";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/features" component={Features} />
+      <Route path="/pricing" component={Pricing} />
+      <Route path="/enterprise" component={Enterprise} />
+      <Route path="/case-studies" component={CaseStudies} />
       <Route path="/impact" component={Impact} />
       <Route path="/about" component={About} />
+      <Route path="/blog" component={Blog} />
+      <Route path="/careers" component={Careers} />
+      <Route path="/contact" component={Contact} />
       <Route path="/auth" component={Auth} />
       <Route path="/dashboard*" component={DashboardLayout} />
       <Route component={NotFound} />
