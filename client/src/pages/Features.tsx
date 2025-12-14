@@ -2,9 +2,10 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Shield, Zap, BarChart, Smartphone, Globe, ArrowRight } from "lucide-react";
+import { Check, Shield, Zap, BarChart, Smartphone, Globe, ArrowRight, Scan, Truck, Recycle, Database } from "lucide-react";
 import { Link } from "wouter";
 import featuresImage from "@assets/generated_images/smart_waste_management_system_illustration.png";
+import processImage from "@assets/generated_images/recycling_process_infographic.png";
 
 export default function Features() {
   const features = [
@@ -37,6 +38,29 @@ export default function Features() {
       icon: Check,
       title: "Contamination Alerts",
       description: "Image recognition technology to identify and alert users about non-recyclable items before they contaminate the bin.",
+    }
+  ];
+
+  const steps = [
+    {
+      icon: Scan,
+      title: "1. Scan & Sort",
+      description: "Use the mobile app to scan items and get instant disposal instructions."
+    },
+    {
+      icon: Recycle,
+      title: "2. Smart Collection",
+      description: "IoT-enabled bins notify collection teams when they are full."
+    },
+    {
+      icon: Truck,
+      title: "3. Optimized Pickup",
+      description: "Electric fleets follow AI-optimized routes to collect waste efficiently."
+    },
+    {
+      icon: Database,
+      title: "4. Track Impact",
+      description: "View your environmental impact and earn community rewards."
     }
   ];
 
@@ -74,8 +98,52 @@ export default function Features() {
           </div>
         </section>
 
-        <section className="py-24">
+        {/* How It Works Section */}
+        <section className="py-24 bg-background">
           <div className="container px-4 md:px-6 mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-heading font-bold mb-4">How EcoTrack Works</h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                A seamless ecosystem connecting waste generators with sustainable disposal solutions.
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+               <div className="relative order-2 lg:order-1">
+                <div className="aspect-square rounded-2xl overflow-hidden shadow-xl border bg-muted">
+                   <img 
+                    src={processImage} 
+                    alt="How it works process" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-8 order-1 lg:order-2">
+                {steps.map((step, i) => (
+                  <div key={i} className="flex gap-4 group">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xl group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
+                      <step.icon className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold mb-2">{step.title}</h3>
+                      <p className="text-muted-foreground">{step.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-24 bg-muted/30">
+          <div className="container px-4 md:px-6 mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-heading font-bold mb-4">Powerful Features</h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                 Everything you need to manage waste responsibly and efficiently.
+              </p>
+            </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {features.map((feature, i) => (
                 <Card key={i} className="border-none shadow-lg hover:-translate-y-1 transition-transform duration-300">
