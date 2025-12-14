@@ -23,6 +23,11 @@ import recyclingInfoImage from "@assets/generated_images/recycling_process_infog
 import smartSystemImage from "@assets/generated_images/smart_waste_management_system_illustration.png";
 import corporateOfficeImage from "@assets/generated_images/sustainable_corporate_office.png";
 import blogHeaderImage from "@assets/generated_images/sustainable_living_blog_header.png";
+import sarahImage from "@assets/generated_images/team_member_sarah_chen.png";
+import marcusImage from "@assets/generated_images/team_member_marcus_rodriguez.png";
+import emilyImage from "@assets/generated_images/team_member_emily_waring.png";
+import davidImage from "@assets/generated_images/team_member_david_park.png";
+
 
 export default function About() {
   const [selectedImage, setSelectedImage] = useState(null);
@@ -247,6 +252,61 @@ export default function About() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Team Section */}
+        <section className="py-20 bg-muted/30">
+          <div className="container px-4 md:px-6 mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-heading font-bold mb-4">Meet the Founders</h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                The passionate individuals driving our mission forward.
+              </p>
+            </div>
+            <div className="grid md:grid-cols-4 gap-8">
+              {[
+                {
+                  name: "Sarah Chen",
+                  role: "CEO & Co-Founder",
+                  bio: "Former tech executive turned environmental advocate.",
+                  image: sarahImage
+                },
+                {
+                  name: "Marcus Rodriguez",
+                  role: "CTO & Co-Founder",
+                  bio: "Building scalable tech for a sustainable future.",
+                  image: marcusImage
+                },
+                {
+                  name: "Dr. Emily Waring",
+                  role: "Head of Sustainability",
+                  bio: "PhD in Environmental Science with 15 years experience.",
+                  image: emilyImage
+                },
+                {
+                  name: "David Park",
+                  role: "Community Director",
+                  bio: "Mobilizing grassroots movements across the globe.",
+                  image: davidImage
+                }
+              ].map((member, i) => (
+                <Card key={i} className="overflow-hidden group hover:shadow-lg transition-all duration-300">
+                  <div className="aspect-square relative overflow-hidden">
+                    <img 
+                      src={member.image} 
+                      alt={member.name}
+                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                  <CardContent className="p-6 text-center">
+                    <h3 className="font-bold text-lg mb-1">{member.name}</h3>
+                    <p className="text-primary text-sm font-medium mb-3">{member.role}</p>
+                    <p className="text-sm text-muted-foreground">{member.bio}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
 
         {/* Contact Section */}
         <section className="py-20">
