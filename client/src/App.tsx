@@ -6,12 +6,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Auth from "@/pages/Auth";
+import Impact from "@/pages/Impact";
+import About from "@/pages/About";
 import DashboardLayout from "@/pages/Dashboard";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/impact" component={Impact} />
+      <Route path="/about" component={About} />
       <Route path="/auth" component={Auth} />
       <Route path="/dashboard*" component={DashboardLayout} />
       <Route component={NotFound} />
