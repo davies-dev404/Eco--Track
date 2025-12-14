@@ -31,7 +31,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { mockWasteRecords, wasteTypeColors } from "@/lib/mockData";
+import { wasteTypeColors } from "@/lib/mockData";
 
 const formSchema = z.object({
   type: z.enum(["plastic", "paper", "glass", "metal", "organic", "ewaste"], {
@@ -46,11 +46,35 @@ const formSchema = z.object({
   notes: z.string().optional(),
 });
 
+import api from "@/lib/api";
+import { useEffect } from "react";
+
+// ... (keep imports)
+
 export default function WasteLog() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  // In a real app, this would come from React Query
-  const [records, setRecords] = useState(mockWasteRecords);
+  const [records, setRecords] = useState([]);
+  
+  // Get user from local storage
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const userId = user?.id || user?._id; // Handle both id formats if needed
+
+  useEffect(() => {
+    if (userId) {
+      fetchRecords();
+    }
+  }, [userId]);
+
+  const fetchRecords = async () => {
+    try {
+      const { data } = await api.get(`/waste?userId=${userId}`);
+      setRecords(data);
+    } catch (error) {
+      console.error("Failed to fetch records", error);
+    }
+  };
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -60,32 +84,48 @@ export default function WasteLog() {
     },
   });
 
-  function onSubmit(values) {
+  async function onSubmit(values) {
+      if (!userId) {
+        toast({
+            title: "Error",
+            description: "You must be logged in to log waste.",
+            variant: "destructive",
+        });
+        return;
+      }
+
     setIsLoading(true);
     
-    // Simulate API delay
-    setTimeout(() => {
-      const newRecord = {
-        id: `new-${Date.now()}`,
-        userId: 'u1',
-        type: values.type,
-        weight: Number(values.weight),
-        date: format(values.date, 'yyyy-MM-dd'),
-        carbonSaved: Number((Number(values.weight) * 1.5).toFixed(1)),
-      };
-      
-      setRecords([newRecord, ...records]);
-      setIsLoading(false);
-      form.reset({
-        weight: "",
-        notes: "",
-      });
-      
-      toast({
-        title: "Record added",
-        description: `Successfully logged ${values.weight}kg of ${values.type}.`,
-      });
-    }, 1000);
+    try {
+        const payload = {
+            userId,
+            type: values.type,
+            weight: Number(values.weight),
+            date: values.date, // Backend expects date object or string, Mongoose handles it
+            notes: values.notes,
+        };
+
+        const { data } = await api.post("/waste", payload);
+        
+        setRecords([data, ...records]);
+        form.reset({
+            weight: "",
+            notes: "",
+        });
+        
+        toast({
+            title: "Record added",
+            description: `Successfully logged ${values.weight}kg of ${values.type}.`,
+        });
+    } catch (error) {
+        toast({
+            title: "Error",
+            description: "Failed to save record.",
+            variant: "destructive",
+        });
+    } finally {
+        setIsLoading(false);
+    }
   }
 
   return (
@@ -221,7 +261,15 @@ export default function WasteLog() {
                       </div>
                       <div>
                         <p className="font-medium capitalize">{record.type}</p>
-                        <p className="text-xs text-muted-foreground">{record.date}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(() => {
+                            try {
+                              return format(new Date(record.date), "PPP");
+                            } catch (e) {
+                              return "Invalid Date";
+                            }
+                          })()}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">

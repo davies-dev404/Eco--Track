@@ -18,6 +18,8 @@ import Auth from "@/pages/Auth";
 import DashboardLayout from "@/pages/Dashboard";
 import TermsOfService from "@/pages/TermsOfService";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import AdminDashboard from "@/pages/AdminDashboard";
+import DriverDashboard from "@/pages/DriverDashboard";
 
 function Router() {
   return (
@@ -40,7 +42,10 @@ function Router() {
       
       {/* App & Legal */}
       <Route path="/auth" component={Auth} />
-      <Route path="/dashboard*" component={DashboardLayout} />
+      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/driver" component={DriverDashboard} />
+      <Route path="/dashboard" component={DashboardLayout} />
+      <Route path="/dashboard/:rest*" component={DashboardLayout} />
       <Route path="/terms" component={TermsOfService} />
       <Route path="/privacy" component={PrivacyPolicy} />
       

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { apiRequest } from "@/lib/queryClient";
+import api from "@/lib/api";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Leaf, Mail, Lock, User, Building2, ArrowRight, Loader2 } from "lucide-react";
+import { Leaf, Mail, Lock, User, Building2, ArrowRight, Loader2, Bike } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,7 +32,14 @@ const registerSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   email: z.string().email({ message: "Invalid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
-  role: z.enum(["individual", "organization"]),
+  role: z.enum(["individual", "organization", "driver"]),
+});
+
+const adminRegisterSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
+  email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  secretKey: z.string().min(1, { message: "Secret key is required" }),
 });
 
 export default function Auth() {
@@ -62,19 +69,42 @@ export default function Auth() {
     },
   });
 
+  const adminRegisterForm = useForm({
+    resolver: zodResolver(adminRegisterSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      secretKey: "",
+    },
+  });
+
+
   async function onLogin(values) {
     setIsLoading(true);
     try {
-      await apiRequest("POST", "/api/login", values);
+      const { data } = await api.post("/auth/login", values); // Use api client
+      
+      // Save token and user info
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user)); // Save user info
+
       toast({
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
-      setLocation("/dashboard");
+      
+      if (data.user.role === "admin") {
+          setLocation("/admin");
+      } else if (data.user.role === "driver") {
+          setLocation("/driver");
+      } else {
+          setLocation("/dashboard");
+      }
     } catch (error) {
       toast({
         title: "Login failed",
-        description: error.message,
+        description: error.response?.data?.message || error.message,
         variant: "destructive",
       });
     } finally {
@@ -85,20 +115,47 @@ export default function Auth() {
   async function onRegister(values) {
     setIsLoading(true);
     try {
-      await apiRequest("POST", "/api/register", values);
+      await api.post("/auth/register", values); // Use api client
       toast({
         title: "Account created",
-        description: "Welcome to EcoTrack!",
+        description: "Please log in with your new account.",
       });
-      setLocation("/dashboard");
+      // Switch to login tab instead of redirecting
+       const params = new URLSearchParams(window.location.search);
+       params.set("tab", "login");
+       window.history.replaceState({}, "", `${window.location.pathname}?${params}`);
+       window.location.reload(); // Simple reload to switch tab or we could control state but this is easy
     } catch (error) {
       toast({
         title: "Registration failed",
-        description: error.message,
+        description: error.response?.data?.message || error.message,
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function onAdminRegister(values) {
+    setIsLoading(true);
+    try {
+        await api.post("/auth/register", { ...values, role: "admin" });
+        toast({
+            title: "Admin Account created",
+            description: "Please log in with your new admin account.",
+        });
+        const params = new URLSearchParams(window.location.search);
+        params.set("tab", "login");
+        window.history.replaceState({}, "", `${window.location.pathname}?${params}`);
+        window.location.reload();
+    } catch (error) {
+        toast({
+            title: "Registration failed",
+            description: error.response?.data?.message || error.message,
+            variant: "destructive",
+        });
+    } finally {
+        setIsLoading(false);
     }
   }
 
@@ -143,9 +200,10 @@ export default function Auth() {
           </div>
 
           <Tabs defaultValue={defaultTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
+              <TabsTrigger value="admin">Admin</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
@@ -187,6 +245,9 @@ export default function Auth() {
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Sign In
                   </Button>
+                  <p className="text-xs text-center text-muted-foreground mt-2">
+                    Admins: Use your credentials to access the Dashboard.
+                  </p>
                 </form>
               </Form>
             </TabsContent>
@@ -248,20 +309,27 @@ export default function Auth() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>I am a...</FormLabel>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-2">
                           <div 
                             className={`cursor-pointer rounded-lg border-2 p-4 flex flex-col items-center gap-2 hover:bg-muted transition-colors ${field.value === 'individual' ? 'border-primary bg-primary/5' : 'border-muted'}`}
                             onClick={() => field.onChange('individual')}
                           >
                             <User className={`h-6 w-6 ${field.value === 'individual' ? 'text-primary' : 'text-muted-foreground'}`} />
-                            <span className="text-sm font-medium">Individual</span>
+                            <span className="text-xs font-medium">Individual</span>
                           </div>
                           <div 
                             className={`cursor-pointer rounded-lg border-2 p-4 flex flex-col items-center gap-2 hover:bg-muted transition-colors ${field.value === 'organization' ? 'border-primary bg-primary/5' : 'border-muted'}`}
                             onClick={() => field.onChange('organization')}
                           >
                             <Building2 className={`h-6 w-6 ${field.value === 'organization' ? 'text-primary' : 'text-muted-foreground'}`} />
-                            <span className="text-sm font-medium">Organization</span>
+                            <span className="text-xs font-medium">Org</span>
+                          </div>
+                          <div 
+                            className={`cursor-pointer rounded-lg border-2 p-4 flex flex-col items-center gap-2 hover:bg-muted transition-colors ${field.value === 'driver' ? 'border-primary bg-primary/5' : 'border-muted'}`}
+                            onClick={() => field.onChange('driver')}
+                          >
+                            <Bike className={`h-6 w-6 ${field.value === 'driver' ? 'text-primary' : 'text-muted-foreground'}`} />
+                            <span className="text-xs font-medium">Rider</span>
                           </div>
                         </div>
                         <FormMessage />
@@ -274,6 +342,81 @@ export default function Auth() {
                   </Button>
                 </form>
               </Form>
+            </TabsContent>
+
+            <TabsContent value="admin">
+                <Form {...adminRegisterForm}>
+                    <form onSubmit={adminRegisterForm.handleSubmit(onAdminRegister)} className="space-y-4">
+                        <FormField
+                            control={adminRegisterForm.control}
+                            name="name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Full Name</FormLabel>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                            <Input placeholder="Admin Name" className="pl-9" {...field} />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={adminRegisterForm.control}
+                            name="email"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Email</FormLabel>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                            <Input placeholder="admin@ecotrack.com" className="pl-9" {...field} />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={adminRegisterForm.control}
+                            name="password"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Password</FormLabel>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                            <Input type="password" placeholder="••••••••" className="pl-9" {...field} />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={adminRegisterForm.control}
+                            name="secretKey"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Secret Key</FormLabel>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                            <Input type="password" placeholder="Enter admin verification code" className="pl-9" {...field} />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <Button type="submit" className="w-full" disabled={isLoading}>
+                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Register as Admin
+                        </Button>
+                    </form>
+                </Form>
             </TabsContent>
           </Tabs>
 

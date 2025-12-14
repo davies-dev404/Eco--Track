@@ -30,15 +30,13 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex h-16 items-center justify-between">
-          <Link href="/">
-            <a className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <Leaf className="h-5 w-5" />
               </div>
               <span className="text-xl font-heading font-bold text-foreground">
                 EcoTrack
               </span>
-            </a>
           </Link>
 
           {/* Desktop Nav */}
