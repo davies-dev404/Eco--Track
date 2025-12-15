@@ -1,5 +1,6 @@
 import express from "express";
 import WasteRecord from "../models/WasteRecord.js";
+import { getIO } from "../socket.js";
 
 const router = express.Router();
 
@@ -58,6 +59,13 @@ router.post("/", async (req, res) => {
 
     const newRecord = new WasteRecord({ userId, type, weight, date, notes, carbonSaved });
     await newRecord.save();
+
+    try {
+        getIO().emit("waste_logged", newRecord);
+    } catch (error) {
+        console.error("Socket emit failed:", error);
+    }
+
     res.status(201).json(newRecord);
   } catch (error) {
     res.status(500).json({ message: "Error saving record" });
@@ -65,3 +73,4 @@ router.post("/", async (req, res) => {
 });
 
 export default router;
+

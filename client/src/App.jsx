@@ -44,6 +44,7 @@ function Router() {
       <Route path="/auth" component={Auth} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/driver" component={DriverDashboard} />
+      <Route path="/driver/:rest*" component={DriverDashboard} />
       <Route path="/dashboard" component={DashboardLayout} />
       <Route path="/dashboard/:rest*" component={DashboardLayout} />
       <Route path="/terms" component={TermsOfService} />

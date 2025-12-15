@@ -2,6 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { getIO } from "../socket.js";
 
 const router = express.Router();
 
@@ -44,7 +45,22 @@ router.post("/login", async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role, address: user.address, phone: user.phone } });
+    res.json({ token, user: { 
+        id: user._id, 
+        name: user.name, 
+        email: user.email, 
+        role: user.role, 
+        address: user.address, 
+        phone: user.phone, 
+        avatar: user.avatar,
+        points: user.points,
+        wallet: user.wallet,
+        vehicle: user.vehicle,
+        nextOfKin: user.nextOfKin,
+        documents: user.documents,
+        vehicleType: user.vehicleType, 
+        vehiclePlate: user.vehiclePlate 
+    } });
   } catch (error) {
     res.status(500).json({ message: "Server error" });
   }
@@ -84,10 +100,7 @@ router.put("/promote", async (req, res) => {
 
 router.put("/profile", async (req, res) => {
     try {
-        const { userId, name, email, address, phone } = req.body;
-        
-        // Simple validation or middleware check usually goes here
-        // For now trusting the ID passed (in real app, use auth middleware to get ID from token)
+        const { userId, name, email, address, phone, avatar } = req.body;
         
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: "User not found" });
@@ -96,14 +109,79 @@ router.put("/profile", async (req, res) => {
         if (email) user.email = email;
         if (address !== undefined) user.address = address;
         if (phone !== undefined) user.phone = phone;
-        // if (password) ... handle password update with hashing
+        if (avatar !== undefined) user.avatar = avatar;
+
+        // Nested Updates (Next of Kin)
+        if (req.body.nextOfKin) {
+            user.nextOfKin = { ...user.nextOfKin, ...req.body.nextOfKin };
+        }
+
+        // Nested Updates (Documents - Personal)
+        if (req.body.documents) {
+            user.documents = { ...user.documents, ...req.body.documents };
+        }
+        
+        // Driver Vehicle Updates
+        if (req.body.vehicleType) user.vehicleType = req.body.vehicleType;
+        if (req.body.vehicle) {
+            // Handle nested vehicle update including status reset if critical info changes?
+            // For now just merge
+             user.vehicle = { ...user.vehicle, ...req.body.vehicle };
+             // Legacy sync
+             if(req.body.vehicle.plate) user.vehiclePlate = req.body.vehicle.plate;
+             if(req.body.vehicle.type) user.vehicleType = req.body.vehicle.type;
+        }
+
+        if (req.body.vehiclePlate) {
+            user.vehiclePlate = req.body.vehiclePlate;
+            if (user.vehicleType) {
+                user.vehicleInfo = `${user.vehicleType} - ${req.body.vehiclePlate}`;
+            } else {
+                user.vehicleInfo = req.body.vehiclePlate;
+            }
+        }
 
         await user.save();
         
         // Return updated user info
-        res.json({ id: user._id, name: user.name, email: user.email, role: user.role, address: user.address, phone: user.phone });
+        res.json({ 
+            id: user._id, 
+            name: user.name, 
+            email: user.email, 
+            role: user.role, 
+            address: user.address, 
+            phone: user.phone, 
+            avatar: user.avatar,
+            points: user.points,
+            wallet: user.wallet,
+            vehicle: user.vehicle,
+            nextOfKin: user.nextOfKin,
+            documents: user.documents,
+            vehicleType: user.vehicleType, 
+            vehiclePlate: user.vehiclePlate 
+        });
     } catch (error) {
         res.status(500).json({ message: "Server error updating profile" });
+    }
+});
+
+// Change Password
+router.put("/change-password", async (req, res) => {
+    try {
+        const { userId, currentPassword, newPassword } = req.body;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) return res.status(400).json({ message: "Incorrect current password" });
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+
+        res.json({ message: "Password updated successfully" });
+    } catch (error) {
+        res.status(500).json({ message: "Server error updating password" });
     }
 });
 
@@ -128,6 +206,8 @@ router.get("/users", async (req, res) => {
     }
 });
 
+
+
 // Admin: Update user (role, status)
 router.put("/users/:id", async (req, res) => {
     try {
@@ -140,6 +220,26 @@ router.put("/users/:id", async (req, res) => {
         if (availability) user.availability = availability;
         
         await user.save();
+        
+        // Broadcast update via Socket.io
+        try {
+            console.log("Broadcasting driver_updated:", user.name, user.availability);
+            const io = getIO();
+            // detailed payload for admin dash
+            io.emit("driver_updated", { 
+                _id: user._id,
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                isActive: user.isActive,
+                availability: user.availability,
+                vehicleInfo: user.vehicleInfo 
+            });
+        } catch (socketError) {
+            console.error("Socket emit failed:", socketError);
+        }
+
         res.json({ message: "User updated successfully", user: { id: user._id, name: user.name, role: user.role, isActive: user.isActive, availability: user.availability } });
     } catch (error) {
         res.status(500).json({ message: "Error updating user" });

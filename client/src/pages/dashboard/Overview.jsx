@@ -24,9 +24,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Trophy, Gift, CreditCard, Heart, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { StatusStepper } from "@/components/ui/StatusStepper";
+import ImpactCertificate from "@/components/ImpactCertificate";
+
+import { useSocket } from "@/context/SocketContext";
 
 export default function DashboardOverview() {
   const { toast } = useToast();
+  const socket = useSocket();
   const [records, setRecords] = useState([]);
   const [pickups, setPickups] = useState([]);
   const [userData, setUserData] = useState(null);
@@ -59,17 +63,47 @@ export default function DashboardOverview() {
     if (userId) {
         fetchData();
         
+        // Keep polling as backup
         const intervalId = setInterval(() => {
              fetchData(true);
-        }, 5000);
+        }, 15000);
         
         return () => clearInterval(intervalId);
     }
   }, [userId]);
 
+  // Real-Time Listeners
+  useEffect(() => {
+      if (!socket || !userId) return;
+
+      socket.on("pickup_updated", (updatedPickup) => {
+          // Only if it belongs to me
+           if (updatedPickup.userId === userId || updatedPickup.user?._id === userId) {
+                toast({ 
+                    title: "Pickup Update", 
+                    description: `Your request is now ${updatedPickup.status.replace('_', ' ')}` 
+                });
+                fetchData(true);
+           }
+      });
+      
+      // If waste is logged elsewhere (e.g. by admin on behalf), we might want to know
+      // For now we assume user logs their own mostly, but good to listen
+      socket.on("waste_logged", (record) => {
+          if (record.userId === userId) {
+              fetchData(true);
+          }
+      });
+
+      return () => {
+          socket.off("pickup_updated");
+          socket.off("waste_logged");
+      };
+  }, [socket, userId, toast]);
+
   const handleRedeem = async (item, cost) => {
-      if (!userData || userData.credits < cost) {
-          toast({ title: "Insufficient Funds", description: "You need more credits!", variant: "destructive" });
+      if (!userData || (userData.points || 0) < cost) {
+          toast({ title: "Insufficient Points", description: "You need more Eco-Points!", variant: "destructive" });
           return;
       }
       setIsRedeeming(true);
@@ -96,7 +130,8 @@ export default function DashboardOverview() {
   // Data Calculations
   const totalWeight = records.reduce((acc, r) => acc + r.weight, 0);
   const totalCarbon = records.reduce((acc, r) => acc + (r.carbonSaved || 0), 0);
-  const walletBalance = userData?.credits || 0;
+  const walletBalance = userData?.wallet?.balance || 0;
+  const points = userData?.points || 0;
 
   // Status Tracker Logic
   const activePickup = pickups
@@ -167,19 +202,19 @@ export default function DashboardOverview() {
                     </DialogHeader>
                     <div className="grid grid-cols-2 gap-4 py-4">
                         {[
-                            { name: "$5 Amazon Card", cost: 5, icon: CreditCard },
-                            { name: "$10 Safaricom Airtime", cost: 10, icon: Phone }, // localized example
-                            { name: "Donate to Tree Fund", cost: 2, icon: Heart },
-                            { name: "Eco-Track Merch", cost: 20, icon: Trophy },
+                            { name: "$5 Amazon Card", cost: 50, icon: CreditCard }, // Updated costs for logic
+                            { name: "$10 Safaricom Airtime", cost: 100, icon: Phone }, 
+                            { name: "Donate to Tree Fund", cost: 20, icon: Heart },
+                            { name: "Eco-Track Merch", cost: 200, icon: Trophy },
                         ].map((reward, i) => (
-                            <div key={i} className={`border rounded-xl p-4 flex flex-col items-center text-center cursor-pointer transition-all ${walletBalance >= reward.cost ? 'hover:bg-slate-50 border-slate-200' : 'opacity-50 grayscale border-slate-100'}`}
+                            <div key={i} className={`border rounded-xl p-4 flex flex-col items-center text-center cursor-pointer transition-all ${points >= reward.cost ? 'hover:bg-slate-50 border-slate-200' : 'opacity-50 grayscale border-slate-100'}`}
                                  onClick={() => handleRedeem(reward.name, reward.cost)}
                             >
                                 <div className="bg-yellow-100 p-3 rounded-full mb-2 text-yellow-600">
                                     <reward.icon className="h-6 w-6" />
                                 </div>
                                 <h4 className="font-bold text-sm">{reward.name}</h4>
-                                <p className="text-xs font-bold text-green-600 mt-1">{reward.cost} Credits</p>
+                                <p className="text-xs font-bold text-green-600 mt-1">{reward.cost} Points</p>
                             </div>
                         ))}
                     </div>
@@ -191,12 +226,20 @@ export default function DashboardOverview() {
       {/* Impact Overview - Moved to Top */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
          <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200">
-             <CardContent className="p-4 flex flex-col justify-center items-center text-center">
-                 <Trophy className="h-8 w-8 text-yellow-600 mb-2" />
-                 <p className="text-3xl font-bold text-yellow-800">{walletBalance.toFixed(2)}</p>
-                 <p className="text-xs text-yellow-700 font-medium tracking-wide uppercase">Wallet Balance</p>
-             </CardContent>
-         </Card>
+              <CardContent className="p-4 flex flex-col justify-center items-center text-center">
+                  <Gift className="h-8 w-8 text-orange-500 mb-2" />
+                  <p className="text-3xl font-bold text-orange-700">{points}</p>
+                  <p className="text-xs text-orange-600 font-medium tracking-wide uppercase">Eco-Points</p>
+              </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+              <CardContent className="p-4 flex flex-col justify-center items-center text-center">
+                  <CreditCard className="h-8 w-8 text-green-600 mb-2" />
+                  <p className="text-3xl font-bold text-green-800">KES {walletBalance.toFixed(2)}</p>
+                  <p className="text-xs text-green-700 font-medium tracking-wide uppercase">Cash Balance</p>
+              </CardContent>
+          </Card>
       
          <Card className="bg-green-50 border-green-200">
              <CardContent className="p-4 flex flex-col justify-center items-center text-center">
@@ -212,75 +255,76 @@ export default function DashboardOverview() {
                  <p className="text-xs text-blue-700 font-medium">CO2 Emissions Saved</p>
              </CardContent>
          </Card>
-         <Card>
-             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Next Pickup</CardTitle>
-                <CalendarClock className="h-4 w-4 text-muted-foreground" />
-             </CardHeader>
-             <CardContent>
-                 {nextPickup ? (
-                     <div>
-                         <div className="text-lg font-bold text-green-600">
-                            {new Date(nextPickup.date).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}
-                         </div>
-                         <p className="text-xs text-muted-foreground">
-                            {new Date(nextPickup.date).toLocaleTimeString(undefined, {hour: 'numeric', minute: '2-digit'})}
-                         </p>
-                     </div>
-                 ) : (
-                     <div className="text-sm text-muted-foreground">No active schedule</div>
-                 )}
-             </CardContent>
-         </Card>
       </div>
 
-      {/* Status Tracker */}
-      {activePickup && (
-          <Card className="border-green-200 shadow-sm">
-              <CardHeader className="pb-3 border-b bg-slate-50/50">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                         <CardTitle className="text-base">Track Your Cleanup</CardTitle>
-                         <Badge variant="outline" className="font-normal">{activePickup.status.replace('_', ' ').toUpperCase()}</Badge>
-                    </div>
-                  </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                  {/* Replaced with Visual Stepper */}
-                  <StatusStepper status={activePickup.status} />
-                  
-                  <div className="flex justify-end mt-4">
-                      {activePickup.driverId && (
-                           <div className="text-sm text-muted-foreground flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-full">
-                               <Truck className="h-3 w-3" /> Driver Assigned
-                           </div>
-                      )}
-                  </div>
-              </CardContent>
-          </Card>
-      )}
-
-      {/* Impact Certificate Teaser */}
-      {!activePickup && (
-          <Card className="bg-gradient-to-r from-green-600 to-teal-600 text-white border-0 shadow-lg">
-              <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-                  <div>
-                      <h3 className="text-xl font-bold flex items-center gap-2"><Trophy className="h-5 w-5 text-yellow-300" /> Impact Certificate</h3>
-                      <p className="text-green-50 opacity-90 text-sm mt-1">
-                          You've recycled {totalWeight.toFixed(1)}kg! Download your official green certificate.
-                      </p>
-                  </div>
-                  <Button variant="secondary" className="whitespace-nowrap shadow-md text-green-700 font-bold" onClick={() => {
-                        toast({ title: "Downloading...", description: "Your certificate is being generated." });
-                        setTimeout(() => {
-                             window.open("https://via.placeholder.com/600x400.png?text=Eco-Track+Certificate+of+Impact", "_blank");
-                        }, 1500);
-                  }}>
-                      Download PDF
-                  </Button>
-              </CardContent>
-          </Card>
-      )}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+       {/* Moved Status Tracker to fit grid or separate row if needed, here separate row */}
+       <div className="col-span-full">
+         {/* Status Tracker */}
+         {activePickup ? (
+              <Card className="border-green-200 shadow-sm">
+                  <CardHeader className="pb-3 border-b bg-slate-50/50">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                             <CardTitle className="text-base">Track Your Cleanup</CardTitle>
+                             <Badge variant="outline" className="font-normal">{activePickup.status.replace('_', ' ').toUpperCase()}</Badge>
+                        </div>
+                      </div>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                      {/* Replaced with Visual Stepper */}
+                      <StatusStepper status={activePickup.status} />
+                      
+                      <div className="flex justify-end mt-4">
+                          {activePickup.driverId && (
+                               <div className="text-sm text-muted-foreground flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-full">
+                                   <Truck className="h-3 w-3" /> Driver Assigned
+                               </div>
+                          )}
+                      </div>
+                  </CardContent>
+              </Card>
+          ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Next Pickup</CardTitle>
+                            <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                             <div className="text-sm text-muted-foreground">No active schedule</div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-r from-green-600 to-teal-600 text-white border-0 shadow-lg">
+                      <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                          <div>
+                              <h3 className="text-xl font-bold flex items-center gap-2"><Trophy className="h-5 w-5 text-yellow-300" /> Impact Certificate</h3>
+                              <p className="text-green-50 opacity-90 text-sm mt-1">
+                                  You've recycled {totalWeight.toFixed(1)}kg! Download your official green certificate.
+                              </p>
+                          </div>
+                          <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="secondary" className="whitespace-nowrap shadow-md text-green-700 font-bold">
+                                    Download PDF
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                                  <DialogHeader>
+                                      <DialogTitle>Your Impact Certificate</DialogTitle>
+                                      <DialogDescription>
+                                          Thank you for your contribution to a greener world.
+                                      </DialogDescription>
+                                  </DialogHeader>
+                                  <ImpactCertificate user={user || {}} totalWeight={totalWeight} totalCarbon={totalCarbon} />
+                              </DialogContent>
+                          </Dialog>
+                      </CardContent>
+                  </Card>
+                </div>
+          )}
+        </div>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         {/* Main Chart */}

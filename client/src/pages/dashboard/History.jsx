@@ -140,7 +140,10 @@ export default function PickupHistory() {
                           <div>
                               <p className="text-muted-foreground mb-1">Date Completed</p>
                               <p className="font-medium">
-                                  {selectedPickup.collectedAt ? format(new Date(selectedPickup.collectedAt), "PPP p") : "Pending"}
+                                  {selectedPickup.collectedAt 
+                                      ? format(new Date(selectedPickup.collectedAt), "PPP p") 
+                                      : <span className="text-amber-600">Scheduled: {format(new Date(selectedPickup.date), "PPP")}</span>
+                                  }
                               </p>
                           </div>
                           <div>
@@ -151,7 +154,9 @@ export default function PickupHistory() {
                               <p className="text-muted-foreground mb-1">Driver</p>
                               <p className="font-medium flex items-center gap-1">
                                   <Truck className="h-3 w-3" />
-                                  {selectedPickup.driverId ? "Assigned Partner" : "Waiting for assignment"}
+                                  {selectedPickup.driverId ? (
+                                      <span className="font-semibold text-blue-600">{selectedPickup.driverId.name || "Eco Partner"}</span>
+                                  ) : "Waiting for assignment"}
                               </p>
                           </div>
                           <div>

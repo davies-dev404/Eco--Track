@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
 import { wasteTypeColors } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
+import { useSocket } from "../../context/SocketContext";
 
 // Enhanced Waste Types with Icons
 const wasteTypeItems = [
@@ -56,6 +57,7 @@ const formSchema = z.object({
 
 export default function PickupRequest() {
   const { toast } = useToast();
+  const socket = useSocket();
   const [isLoading, setIsLoading] = useState(false);
   const [requests, setRequests] = useState([]);
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
@@ -94,6 +96,33 @@ export default function PickupRequest() {
            .catch(err => console.error(err));
     }
   }, [userId]);
+
+  // Real-time listener
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("pickup_updated", (updatedPickup) => {
+        setRequests((prev) => 
+            prev.map((req) => req.id === updatedPickup.id || req._id === updatedPickup._id ? updatedPickup : req)
+        );
+        toast({
+            title: "Pickup Updated",
+            description: `Status changed to: ${updatedPickup.status}`,
+        });
+    });
+    
+    // Optional: Listen for created if we want to sync across multiple tabs for same user
+    socket.on("pickup_created", (newPickup) => {
+        if (newPickup.userId === userId) {
+             setRequests((prev) => [...prev, newPickup]);
+        }
+    });
+
+    return () => {
+        socket.off("pickup_updated");
+        socket.off("pickup_created");
+    };
+  }, [socket, userId, toast]);
 
   const form = useForm({
     resolver: zodResolver(formSchema),

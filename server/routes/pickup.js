@@ -1,6 +1,7 @@
 import express from "express";
 import Pickup from "../models/Pickup.js";
 import WasteRecord from "../models/WasteRecord.js";
+import { getIO } from "../socket.js";
 
 const router = express.Router();
 
@@ -43,7 +44,7 @@ router.get("/", async (req, res) => {
     const { userId } = req.query;
     if(!userId) return res.status(400).json({ message: "User ID required" });
     
-    const pickups = await Pickup.find({ userId }).sort({ date: 1 });
+    const pickups = await Pickup.find({ userId }).sort({ date: 1 }).populate('driverId', 'name vehicleInfo');
     res.json(pickups);
   } catch (error) {
     res.status(500).json({ message: "Server error" });
@@ -70,13 +71,18 @@ router.post("/", async (req, res) => {
 
     // Mark waste records as scheduled
     if (wasteRecordIds.length > 0) {
-        // Dynamic import to avoid circular dependency issues if any, or just import at top. 
-        // Better to import at top. Let's assume WasteRecord import is added.
         await WasteRecord.updateMany(
             { _id: { $in: wasteRecordIds } },
             { $set: { status: 'scheduled' } }
         );
     }
+
+    try {
+        getIO().emit("pickup_created", newPickup);
+    } catch (error) {
+        console.error("Socket emit failed:", error);
+    }
+
     res.status(201).json(newPickup);
   } catch (error) {
     res.status(500).json({ message: "Error creating pickup request" });
@@ -112,10 +118,23 @@ router.put("/:id", async (req, res) => {
              // 1. Driver Earnings
              updates.earnedAmount = amount;
 
-             // 2. User Credits
+             // 2. User Rewards
              if (previousPickup.userId) {
+                 const pointsEarned = Math.round(updates.actualWeight * 10); // 10 points per kg
+                 const cashEarned = Number((updates.actualWeight * 5).toFixed(2)); // 5 KES per kg
+                 
                  await User.findByIdAndUpdate(previousPickup.userId, { 
-                     $inc: { credits: amount } 
+                     $inc: { 
+                         points: pointsEarned,
+                         "wallet.balance": cashEarned
+                     },
+                     $push: {
+                         "wallet.history": {
+                             type: 'earning',
+                             amount: cashEarned,
+                             description: `Recycled ${updates.actualWeight}kg of ${previousPickup.wasteTypes[0] || 'Waste'}`
+                         }
+                     }
                  });
              }
 
@@ -149,6 +168,12 @@ router.put("/:id", async (req, res) => {
            });
         }
         
+        try {
+            getIO().emit("pickup_updated", updatedPickup);
+        } catch (error) {
+            console.error("Socket emit failed:", error);
+        }
+
         res.json(updatedPickup);
     } catch (error) {
         console.error(error);
