@@ -29,6 +29,12 @@ router.post("/register", async (req, res) => {
     const newUser = new User({ name, email, password: hashedPassword, role: assignedRole });
     await newUser.save();
 
+    try {
+        getIO().emit("user_registered", { name, email, role: assignedRole });
+    } catch (e) {
+        console.error("Socket emit failed:", e);
+    }
+
     res.status(201).json({ message: "User created successfully" });
   } catch (error) {
     res.status(500).json({ message: "Server error" });

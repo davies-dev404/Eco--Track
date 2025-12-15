@@ -33,6 +33,7 @@ import AdminUsers from "@/components/admin/AdminUsers";
 import AdminSettings from "@/components/admin/AdminSettings";
 import AdminLiveMap from "@/components/admin/AdminLiveMap";
 import AdminProfile from "@/components/admin/AdminProfile";
+import SharedNotifications from "@/components/SharedNotifications";
 
 export default function AdminDashboard() {
   const [location, setLocation] = useLocation();
@@ -262,10 +263,7 @@ export default function AdminDashboard() {
                     </div>
                     
                     <div className="flex items-center gap-3">
-                        <Button variant="ghost" size="icon" className="relative text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors">
-                            <Bell className="h-5 w-5" />
-                            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-                        </Button>
+                        <SharedNotifications role="admin" />
                         
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>

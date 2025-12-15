@@ -22,6 +22,8 @@ import PickupHistory from "./dashboard/History";
 import Impact from "./dashboard/Impact";
 import Settings from "./dashboard/Settings";
 import AdminPickups from "./dashboard/AdminPickups";
+import UserSupport from "./dashboard/UserSupport";
+import SharedNotifications from "@/components/SharedNotifications";
 
 export default function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -155,9 +157,13 @@ export default function DashboardLayout() {
           </div>
 
           <div className="flex items-center gap-4">
-             <Button variant="outline" className="hidden sm:flex rounded-full border-slate-200 text-slate-600 hover:bg-slate-50 gap-2">
-                 <ShieldCheck className="h-4 w-4" /> Support
-             </Button>
+             <SharedNotifications role="user" userId={user.id || user._id} />
+             
+             <Link href="/dashboard/support">
+                 <Button variant="outline" className="hidden sm:flex rounded-full border-slate-200 text-slate-600 hover:bg-slate-50 gap-2">
+                     <ShieldCheck className="h-4 w-4 text-emerald-600" /> Support
+                 </Button>
+             </Link>
             <Link href="/dashboard/log">
               <Button size="sm" className="hidden sm:flex gap-2 rounded-full bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/10 px-6">
                 <Plus className="h-4 w-4" /> Log Waste
@@ -184,6 +190,7 @@ export default function DashboardLayout() {
                 <Route path="/dashboard/history" component={PickupHistory} />
                 <Route path="/dashboard/impact" component={Impact} />
                 <Route path="/dashboard/settings" component={Settings} />
+                <Route path="/dashboard/support" component={UserSupport} /> {/* NEW ROUTE */}
                 <Route path="/dashboard/admin" component={AdminPickups} />
                 <Route>
                     <div className="flex flex-col items-center justify-center h-96 text-center">
