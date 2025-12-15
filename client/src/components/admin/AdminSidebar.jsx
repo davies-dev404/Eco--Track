@@ -1,50 +1,53 @@
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
-import { LayoutDashboard, Truck, Map as MapIcon, Trash2, User, Settings as SettingsIcon } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, LayoutDashboard, Truck, Map as MapIcon, Trash2, User, Settings as SettingsIcon } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export default function AdminSidebar({ activeTab, setActiveTab, user, onLogout }) {
+export default function AdminSidebar({ activeTab, setActiveTab, user, onLogout, isCollapsed, toggleCollapse }) {
     const navItems = [
         { id: 'analytics', label: 'Executive Overview', icon: LayoutDashboard },
-        { id: 'pickups', label: 'Pickups', icon: Truck },
-        { id: 'livemap', label: 'Live Map', icon: MapIcon },
-        { id: 'waste', label: 'Waste Logs', icon: Trash2 },
+        { id: 'pickups', label: 'Pickup Requests', icon: Truck },
+        { id: 'map', label: 'Live Operations', icon: MapIcon },
         { id: 'users', label: 'Users & Fleet', icon: User },
-        { id: 'settings', label: 'Settings', icon: SettingsIcon },
+        { id: 'settings', label: 'System Settings', icon: SettingsIcon },
     ];
 
     return (
-        <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col fixed h-full z-10 border-r border-slate-800 shadow-xl">
-            <div className="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-900">
-                <span className="font-heading font-bold text-xl text-white tracking-tight">Eco<span className="text-green-500">Track</span> Admin</span>
+        <div className="flex flex-col h-full w-full">
+            {/* Header */}
+            <div className={`h-20 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between px-6'} border-b border-slate-800 transition-all duration-300`}>
+                {!isCollapsed && (
+                    <span className="font-bold text-xl text-white tracking-tight flex items-center gap-2">
+                        Eco<span className="text-indigo-500">Track</span>
+                    </span>
+                )}
+                {isCollapsed && <span className="font-bold text-xl text-indigo-500">ET</span>}
+                <Button variant="ghost" size="icon" onClick={toggleCollapse} className="text-slate-400 hover:text-white hidden lg:flex">
+                   {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                </Button>
             </div>
             
-            <nav className="flex-1 p-4 space-y-1">
+            {/* Nav */}
+            <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto custom-scrollbar">
                 {navItems.map(item => (
                     <Button 
                         key={item.id}
-                        variant={activeTab === item.id ? "secondary" : "ghost"} 
-                        className={`w-full justify-start ${activeTab === item.id ? 'bg-slate-800 text-white shadow-sm' : 'hover:bg-slate-800 hover:text-white'}`}
+                        variant="ghost"
+                        className={`w-full relative group transition-all duration-200 ${
+                            activeTab === item.id 
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' 
+                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        } ${isCollapsed ? 'justify-center px-0' : 'justify-start px-4'} py-3`}
                         onClick={() => setActiveTab(item.id)}
+                        title={isCollapsed ? item.label : ''}
                     >
-                        <item.icon className="mr-3 h-4 w-4" /> {item.label}
+                        <item.icon className={`h-5 w-5 ${isCollapsed ? '' : 'mr-3'} ${activeTab === item.id ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                        {!isCollapsed && <span className="font-medium">{item.label}</span>}
+                        {activeTab === item.id && !isCollapsed && (
+                             <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-l-full opacity-20"></div>
+                        )}
                     </Button>
                 ))}
             </nav>
-    
-            <div className="p-4 border-t border-slate-800 bg-slate-900">
-                 <div className="flex items-center gap-3 mb-4 px-2">
-                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white font-bold shadow-lg">
-                        {user?.name?.[0]}
-                    </div>
-                    <div className="truncate">
-                       <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-                       <p className="text-xs text-slate-500">Super Admin</p>
-                    </div>
-                 </div>
-                 <Button variant="destructive" className="w-full shadow-md hover:bg-red-600" onClick={onLogout}>
-                     <LogOut className="mr-2 h-4 w-4" /> Logout
-                 </Button>
-            </div>
-        </aside>
+        </div>
     );
 }

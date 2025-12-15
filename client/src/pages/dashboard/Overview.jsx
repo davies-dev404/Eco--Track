@@ -9,11 +9,12 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend
+  Legend,
+  AreaChart, Area
 } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { wasteTypeColors } from "@/lib/constants";
-import { ArrowUpRight, Leaf, Scale, Truck, CalendarClock, MapPin, CheckCircle } from "lucide-react";
+import { ArrowUpRight, Leaf, Scale, Truck, CalendarClock, MapPin, CheckCircle, TrendingUp, Award, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
 import api from "@/lib/api";
 import { Progress } from "@/components/ui/progress";
@@ -27,6 +28,7 @@ import { StatusStepper } from "@/components/ui/StatusStepper";
 import ImpactCertificate from "@/components/ImpactCertificate";
 
 import { useSocket } from "@/context/SocketContext";
+import { Link } from "wouter";
 
 export default function DashboardOverview() {
   const { toast } = useToast();
@@ -62,12 +64,7 @@ export default function DashboardOverview() {
   useEffect(() => {
     if (userId) {
         fetchData();
-        
-        // Keep polling as backup
-        const intervalId = setInterval(() => {
-             fetchData(true);
-        }, 15000);
-        
+        const intervalId = setInterval(() => fetchData(true), 15000);
         return () => clearInterval(intervalId);
     }
   }, [userId]);
@@ -77,22 +74,17 @@ export default function DashboardOverview() {
       if (!socket || !userId) return;
 
       socket.on("pickup_updated", (updatedPickup) => {
-          // Only if it belongs to me
            if (updatedPickup.userId === userId || updatedPickup.user?._id === userId) {
                 toast({ 
-                    title: "Pickup Update", 
-                    description: `Your request is now ${updatedPickup.status.replace('_', ' ')}` 
+                    title: "Status Update", 
+                    description: `Pickup is now ${updatedPickup.status.replace('_', ' ')}` 
                 });
                 fetchData(true);
            }
       });
       
-      // If waste is logged elsewhere (e.g. by admin on behalf), we might want to know
-      // For now we assume user logs their own mostly, but good to listen
       socket.on("waste_logged", (record) => {
-          if (record.userId === userId) {
-              fetchData(true);
-          }
+          if (record.userId === userId) fetchData(true);
       });
 
       return () => {
@@ -103,28 +95,14 @@ export default function DashboardOverview() {
 
   const handleRedeem = async (item, cost) => {
       if (!userData || (userData.points || 0) < cost) {
-          toast({ title: "Insufficient Points", description: "You need more Eco-Points!", variant: "destructive" });
+          toast({ title: "Insufficient Points", description: "Collect more waste to earn points!", variant: "destructive" });
           return;
       }
       setIsRedeeming(true);
-      try {
-           // Subtract credits (Mock logic via API update)
-           // ideally we'd have a specific /redeem endpoint, but we'll use profile update for simplicity or add one
-           // A cleaner way is to just simulate it visually since we don't have a specific redeem transaction log yet
-           // But let's verify we can at least deduct it.
-           // We'll trust the user to be honest for this demo or add a PUT /profile update
-           // Actually, let's just show a toast for this demo phase as "Redemption Request Sent"
-           // Or, update user credits directly via PUT (if we allow it? Auth route allows updating profile fields?)
-           // Checking auth.js... PUT /users/:id updates role/status, PUT /profile updates name/email..
-           // We didn't add credit update to public endpoints.
-           // So for this demo, we will just simulate success.
-           
-           toast({ title: "Redemption Successful!", description: `Enjoy your ${item}. Code sent to email.` });
+      setTimeout(() => {
+           toast({ title: "Redeemed!", description: `Enjoy your ${item}. Check your email.` });
            setIsRedeeming(false);
-      } catch (error) {
-           toast({ title: "Error", description: "Could not redeem." });
-           setIsRedeeming(false);
-      }
+      }, 1000); // Simulate API call
   };
 
   // Data Calculations
@@ -137,30 +115,6 @@ export default function DashboardOverview() {
   const activePickup = pickups
     .filter(p => ['pending', 'assigned', 'accepted', 'in_progress'].includes(p.status))
     .sort((a,b) => new Date(a.date) - new Date(b.date))[0];
-
-  const getStatusProgress = (status) => {
-      switch(status) {
-          case 'pending': return 25;
-          case 'assigned': return 50;
-          case 'accepted': return 75;
-          case 'in_progress': return 90;
-          case 'collected': return 100;
-          default: return 0;
-      }
-  };
-
-  const getStatusLabel = (status) => {
-      switch(status) {
-          case 'pending': return 'Request Received';
-          case 'assigned': return 'Driver Assigned';
-          case 'accepted': return 'Driver Accepted';
-          case 'in_progress': return 'Driver On The Way';
-          default: return 'Processing';
-      }
-  };
-
-  // Next Pickup logic
-  const nextPickup = activePickup; // Simplification: Active pickup is usually the "Next" one unless looking far ahead
 
   // Charts Logic
   const wasteByType = records.reduce((acc, record) => {
@@ -179,193 +133,228 @@ export default function DashboardOverview() {
       weight: record.weight
   }));
 
-  if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading dashboard...</div>;
+  if (isLoading) return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
+          <div className="h-48 bg-slate-200 rounded-3xl col-span-3"></div>
+          <div className="h-32 bg-slate-200 rounded-2xl"></div>
+          <div className="h-32 bg-slate-200 rounded-2xl"></div>
+          <div className="h-32 bg-slate-200 rounded-2xl"></div>
+      </div>
+  );
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-5 duration-500">
-      <div className="flex justify-between items-center">
-        <div>
-           <h1 className="text-3xl font-heading font-bold tracking-tight">Hello, {user?.name?.split(' ')[0] || 'User'}!</h1>
-           <p className="text-muted-foreground">Here's your environmental impact summary.</p>
-        </div>
-        <div className="flex items-center gap-2">
-            <Dialog>
-                <DialogTrigger asChild>
-                    <Button className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0 shadow-lg hover:from-yellow-500 hover:to-orange-600">
-                        <Gift className="mr-2 h-4 w-4" /> Redeem Points
-                    </Button>
-                </DialogTrigger>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Eco-Rewards Store</DialogTitle>
-                        <DialogDescription>Use your recycling credits for good.</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid grid-cols-2 gap-4 py-4">
-                        {[
-                            { name: "$5 Amazon Card", cost: 50, icon: CreditCard }, // Updated costs for logic
-                            { name: "$10 Safaricom Airtime", cost: 100, icon: Phone }, 
-                            { name: "Donate to Tree Fund", cost: 20, icon: Heart },
-                            { name: "Eco-Track Merch", cost: 200, icon: Trophy },
-                        ].map((reward, i) => (
-                            <div key={i} className={`border rounded-xl p-4 flex flex-col items-center text-center cursor-pointer transition-all ${points >= reward.cost ? 'hover:bg-slate-50 border-slate-200' : 'opacity-50 grayscale border-slate-100'}`}
-                                 onClick={() => handleRedeem(reward.name, reward.cost)}
-                            >
-                                <div className="bg-yellow-100 p-3 rounded-full mb-2 text-yellow-600">
-                                    <reward.icon className="h-6 w-6" />
-                                </div>
-                                <h4 className="font-bold text-sm">{reward.name}</h4>
-                                <p className="text-xs font-bold text-green-600 mt-1">{reward.cost} Points</p>
-                            </div>
-                        ))}
-                    </div>
-                </DialogContent>
-            </Dialog>
-        </div>
-      </div>
-
-      {/* Impact Overview - Moved to Top */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-         <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200">
-              <CardContent className="p-4 flex flex-col justify-center items-center text-center">
-                  <Gift className="h-8 w-8 text-orange-500 mb-2" />
-                  <p className="text-3xl font-bold text-orange-700">{points}</p>
-                  <p className="text-xs text-orange-600 font-medium tracking-wide uppercase">Eco-Points</p>
-              </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-              <CardContent className="p-4 flex flex-col justify-center items-center text-center">
-                  <CreditCard className="h-8 w-8 text-green-600 mb-2" />
-                  <p className="text-3xl font-bold text-green-800">KES {walletBalance.toFixed(2)}</p>
-                  <p className="text-xs text-green-700 font-medium tracking-wide uppercase">Cash Balance</p>
-              </CardContent>
-          </Card>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
       
-         <Card className="bg-green-50 border-green-200">
-             <CardContent className="p-4 flex flex-col justify-center items-center text-center">
-                 <Scale className="h-8 w-8 text-green-600 mb-2" />
-                 <p className="text-3xl font-bold text-green-800">{totalWeight.toFixed(1)} kg</p>
-                 <p className="text-xs text-green-700 font-medium">Total Waste Recycled</p>
-             </CardContent>
-         </Card>
-         <Card className="bg-blue-50 border-blue-200">
-             <CardContent className="p-4 flex flex-col justify-center items-center text-center">
-                 <Leaf className="h-8 w-8 text-blue-600 mb-2" />
-                 <p className="text-3xl font-bold text-blue-800">{totalCarbon.toFixed(1)} kg</p>
-                 <p className="text-xs text-blue-700 font-medium">CO2 Emissions Saved</p>
-             </CardContent>
-         </Card>
+      {/* 1. HERO SECTION: Impact Statement */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-2xl">
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+              <div>
+                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold uppercase tracking-wider mb-4 border border-emerald-500/20">
+                        <Leaf className="h-3 w-3" /> Sustainability Champion
+                   </div>
+                   <h1 className="text-4xl font-bold mb-2 leading-tight">You've saved <span className="text-emerald-400">{totalCarbon.toFixed(1)}kg</span> <br/>of CO2 emissions.</h1>
+                   <p className="text-slate-400 text-lg max-w-xl">
+                       That’s equivalent to planting <span className="text-white font-bold">{(totalCarbon / 20).toFixed(1)} trees</span> this month. Keep up the great work!
+                   </p>
+                   
+                   <div className="flex gap-4 mt-8">
+                      <Dialog>
+                          <DialogTrigger asChild>
+                              <Button className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full px-6 h-12 font-bold shadow-lg shadow-emerald-500/20 transition-all hover:scale-105">
+                                  <Gift className="mr-2 h-4 w-4" /> Redeem Rewards
+                              </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-xl">
+                            <DialogHeader>
+                                <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                                    <Gift className="h-6 w-6 text-orange-500" /> Rewards Store
+                                </DialogTitle>
+                                <DialogDescription>Redeem your {points} points for exciting rewards.</DialogDescription>
+                            </DialogHeader>
+                            <div className="grid grid-cols-2 gap-4 py-4">
+                                {[
+                                    { name: "$5 Amazon Card", cost: 50, icon: CreditCard },
+                                    { name: "$10 Safaricom Airtime", cost: 100, icon: Phone }, 
+                                    { name: "Tree Donation", cost: 20, icon: Leaf },
+                                    { name: "Eco-Track Merch", cost: 200, icon: Trophy },
+                                ].map((reward, i) => (
+                                    <div key={i} className={`group border rounded-xl p-4 flex flex-col items-center text-center cursor-pointer transition-all hover:shadow-md ${points >= reward.cost ? 'bg-white border-slate-200 hover:border-green-400' : 'bg-slate-50 opacity-60'}`}
+                                            onClick={() => handleRedeem(reward.name, reward.cost)}
+                                    >
+                                        <div className="bg-orange-100 group-hover:bg-orange-200 p-4 rounded-full mb-3 text-orange-600 transition-colors">
+                                            <reward.icon className="h-6 w-6" />
+                                        </div>
+                                        <h4 className="font-bold text-slate-800">{reward.name}</h4>
+                                        <p className="text-xs font-bold text-emerald-600 mt-1">{reward.cost} Points</p>
+                                    </div>
+                                ))}
+                            </div>
+                          </DialogContent>
+                      </Dialog>
+
+                       <Link href="/dashboard/impact">
+                           <Button variant="outline" className="border-white/10 bg-white/5 text-white hover:bg-white/10 rounded-full px-6 h-12 font-medium backdrop-blur-md">
+                               View Detailed Report
+                           </Button>
+                       </Link>
+                   </div>
+              </div>
+              
+              {/* Floating Certificate Card */}
+              <div className="hidden md:block">
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-2xl w-72 text-center transform rotate-3 hover:rotate-0 transition-transform duration-500 cursor-pointer shadow-2xl">
+                       <Trophy className="h-12 w-12 text-yellow-400 mx-auto mb-3 drop-shadow-md" />
+                       <h3 className="font-bold text-xl text-white mb-1">Impact Certified</h3>
+                       <p className="text-sm text-slate-300 mb-4">Silver Tier Recycler</p>
+                       <Dialog>
+                          <DialogTrigger asChild>
+                             <Button size="sm" className="w-full bg-white text-slate-900 hover:bg-slate-100 font-bold">Download PDF</Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                              <ImpactCertificate user={user || {}} totalWeight={totalWeight} totalCarbon={totalCarbon} />
+                          </DialogContent>
+                       </Dialog>
+                  </div>
+              </div>
+          </div>
+          
+          {/* Decorative Elements */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/20 rounded-full blur-[100px] -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/20 rounded-full blur-[80px] -ml-20 -mb-20 pointer-events-none"></div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-       {/* Moved Status Tracker to fit grid or separate row if needed, here separate row */}
-       <div className="col-span-full">
-         {/* Status Tracker */}
-         {activePickup ? (
-              <Card className="border-green-200 shadow-sm">
-                  <CardHeader className="pb-3 border-b bg-slate-50/50">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                             <CardTitle className="text-base">Track Your Cleanup</CardTitle>
-                             <Badge variant="outline" className="font-normal">{activePickup.status.replace('_', ' ').toUpperCase()}</Badge>
-                        </div>
-                      </div>
-                  </CardHeader>
-                  <CardContent className="pt-6">
-                      {/* Replaced with Visual Stepper */}
-                      <StatusStepper status={activePickup.status} />
-                      
-                      <div className="flex justify-end mt-4">
-                          {activePickup.driverId && (
-                               <div className="text-sm text-muted-foreground flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-full">
-                                   <Truck className="h-3 w-3" /> Driver Assigned
-                               </div>
-                          )}
-                      </div>
-                  </CardContent>
-              </Card>
-          ) : (
-                <div className="grid gap-4 md:grid-cols-2">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Next Pickup</CardTitle>
-                            <CalendarClock className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                             <div className="text-sm text-muted-foreground">No active schedule</div>
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-gradient-to-r from-green-600 to-teal-600 text-white border-0 shadow-lg">
-                      <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-                          <div>
-                              <h3 className="text-xl font-bold flex items-center gap-2"><Trophy className="h-5 w-5 text-yellow-300" /> Impact Certificate</h3>
-                              <p className="text-green-50 opacity-90 text-sm mt-1">
-                                  You've recycled {totalWeight.toFixed(1)}kg! Download your official green certificate.
-                              </p>
-                          </div>
-                          <Dialog>
-                              <DialogTrigger asChild>
-                                <Button variant="secondary" className="whitespace-nowrap shadow-md text-green-700 font-bold">
-                                    Download PDF
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                                  <DialogHeader>
-                                      <DialogTitle>Your Impact Certificate</DialogTitle>
-                                      <DialogDescription>
-                                          Thank you for your contribution to a greener world.
-                                      </DialogDescription>
-                                  </DialogHeader>
-                                  <ImpactCertificate user={user || {}} totalWeight={totalWeight} totalCarbon={totalCarbon} />
-                              </DialogContent>
-                          </Dialog>
-                      </CardContent>
-                  </Card>
+      {/* 2. STATS OVERVIEW */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="border-0 shadow-sm hover:shadow-md transition-all duration-300 group">
+              <CardContent className="p-5 flex items-start justify-between">
+                  <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Wallet</p>
+                      <h3 className="text-2xl font-bold text-slate-900 group-hover:text-green-600 transition-colors">KES {walletBalance}</h3>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-xl text-green-600 group-hover:bg-green-100 transition-colors">
+                      <CreditCard className="h-5 w-5" />
+                  </div>
+              </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm hover:shadow-md transition-all duration-300 group">
+              <CardContent className="p-5 flex items-start justify-between">
+                  <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Points</p>
+                      <h3 className="text-2xl font-bold text-slate-900 group-hover:text-orange-500 transition-colors">{points} pts</h3>
+                  </div>
+                  <div className="p-3 bg-orange-50 rounded-xl text-orange-500 group-hover:bg-orange-100 transition-colors">
+                      <Gift className="h-5 w-5" />
+                  </div>
+              </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm hover:shadow-md transition-all duration-300 group">
+              <CardContent className="p-5 flex items-start justify-between">
+                  <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Recycled</p>
+                      <h3 className="text-2xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{totalWeight.toFixed(0)} kg</h3>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded-xl text-blue-600 group-hover:bg-blue-100 transition-colors">
+                      <Scale className="h-5 w-5" />
+                  </div>
+              </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm hover:shadow-md transition-all duration-300 group">
+              <CardContent className="p-5 flex items-start justify-between">
+                  <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Impact</p>
+                      <h3 className="text-2xl font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">High</h3>
+                  </div>
+                  <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600 group-hover:bg-emerald-100 transition-colors">
+                      <TrendingUp className="h-5 w-5" />
+                  </div>
+              </CardContent>
+          </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* 3. CHART: RECYCLING TRENDS (cleaner) */}
+            <Card className="col-span-2 border-0 shadow-sm">
+                <CardHeader>
+                    <CardTitle className="text-lg font-bold text-slate-800">Recycling Trends</CardTitle>
+                    <CardDescription>Your weekly contribution weight</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="h-[300px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={recentData}>
+                                <defs>
+                                    <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="date" axisLine={false} tickLine={false} fontSize={12} tick={{fill: '#94a3b8'}} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} fontSize={12} tick={{fill: '#94a3b8'}} tickFormatter={(v) => `${v}kg`} />
+                                <Tooltip cursor={{stroke: '#10b981', strokeWidth: 2}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                                <Area type="monotone" dataKey="weight" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorWeight)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* 4. ACTIVE STATUS (Compact) */}
+            <div className="space-y-6">
+                <div>
+                     <h3 className="text-lg font-bold text-slate-800 mb-4">Live Status</h3>
+                     {activePickup ? (
+                        <Card className="border-2 border-emerald-500/20 shadow-lg shadow-emerald-500/5 bg-white overflow-hidden">
+                            <div className="bg-emerald-50/50 p-4 border-b border-emerald-100 flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                    <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Active Pickup</span>
+                                </div>
+                                <span className="text-xs font-semibold text-slate-500">{new Date(activePickup.date).toLocaleDateString()}</span>
+                            </div>
+                            <CardContent className="pt-6">
+                                <StatusStepper status={activePickup.status} />
+                                <p className="text-center text-sm font-medium text-slate-600 mt-6">
+                                    {activePickup.status === 'in_progress' ? 'Driver is on the way!' : 'Processing your request...'}
+                                </p>
+                            </CardContent>
+                        </Card>
+                     ) : (
+                         <div className="bg-slate-50 rounded-3xl p-8 text-center border-2 border-dashed border-slate-200">
+                             <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                                 <Truck className="h-8 w-8 text-slate-300" />
+                             </div>
+                             <h4 className="text-slate-900 font-bold mb-1">No Active Pickups</h4>
+                             <p className="text-slate-500 text-sm mb-4">Ready to clear some space?</p>
+                             <Button className="rounded-full bg-slate-900 text-white shadow-lg hover:bg-slate-800" asChild>
+                                 <a href="/dashboard/log">Schedule Pickup</a>
+                             </Button>
+                         </div>
+                     )}
                 </div>
-          )}
-        </div>
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        {/* Main Chart */}
-        <Card className="col-span-4 hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle>Recycling Habits</CardTitle>
-            <CardDescription>Your contribution over time</CardDescription>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={recentData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}kg`} />
-                <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                <Bar dataKey="weight" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Breakdown Chart */}
-        <Card className="col-span-3 hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle>Material Breakdown</CardTitle>
-            <CardDescription>What you recycle most</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value">
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+                {/* Waste Distribution */}
+                <Card className="border-0 shadow-sm">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Waste Breakdown</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="h-[180px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={2} dataKey="value">
+                                        {pieData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                                    <Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" iconSize={8} wrapperStyle={{fontSize: '11px'}} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
       </div>
     </div>
   );

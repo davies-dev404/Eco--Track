@@ -1,30 +1,43 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
-import { Loader2, Save, Trash2, FileText, CheckCircle } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { 
+  Bell, 
+  Search, 
+  Menu, 
+  ChevronRight, 
+  ShieldCheck, 
+  LogOut,
+  Settings as SettingsIcon,
+  User as UserIcon
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format } from "date-fns";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import api from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useSocket } from "@/context/SocketContext";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import html2canvas from "html2canvas";
 
-// Import Modular Components
+// Modular Components
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminOverview from "@/components/admin/AdminOverview";
 import AdminPickups from "@/components/admin/AdminPickups";
 import AdminUsers from "@/components/admin/AdminUsers";
 import AdminSettings from "@/components/admin/AdminSettings";
 import AdminLiveMap from "@/components/admin/AdminLiveMap";
-import { DashboardSkeleton } from "@/components/ui/DashboardSkeleton";
+import AdminProfile from "@/components/admin/AdminProfile";
 
 export default function AdminDashboard() {
   const [location, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("analytics"); 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const { toast } = useToast();
   const socket = useSocket();
   const [user, setUser] = useState(null);
@@ -39,7 +52,7 @@ export default function AdminDashboard() {
 
   // Settings State 
   const [timeFilter, setTimeFilter] = useState("7d"); 
-  const [usersViewMode, setUsersViewMode] = useState('all'); // 'all' | 'pending' | 'drivers'
+  const [usersViewMode, setUsersViewMode] = useState('all'); 
   const [settings, setSettings] = useState({
       pricing: { plastic: 0.5, paper: 0.2, glass: 0.1, metal: 0.8, ewaste: 1.5 },
       zones: ["Downtown", "North Suburbs", "Industrial District"]
@@ -148,368 +161,175 @@ export default function AdminDashboard() {
   // Computed Metrics
   const totalCollected = (pickups.reduce((acc, p) => acc + (p.actualWeight || 0), 0) + wasteLogs.reduce((acc, l) => acc + (l.weight || 0), 0)).toFixed(1);
   const completedCount = pickups.filter(p => p.status === 'completed' || p.status === 'collected').length;
-  const activeCount = pickups.filter(p => ['assigned','accepted','in_progress'].includes(p.status)).length;
+  const activeCount = pickups.filter(p => ['pending', 'assigned', 'accepted', 'in_progress'].includes(p.status)).length;
   const onlineDrivers = drivers.filter(d => d.availability === 'online').length;
 
-  if (!user || isLoading) {
-      return (
-          <div className="min-h-screen flex bg-slate-50">
-               <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} user={user} onLogout={handleLogout} />
-               <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen">
-                   <div className="mb-8">
-                       <h1 className="text-3xl font-bold tracking-tight text-slate-200 w-1/3 h-10 bg-slate-200 rounded animate-pulse mb-2"></h1>
-                       <div className="h-4 w-1/4 bg-slate-200 rounded animate-pulse"></div>
-                   </div>
-                   <DashboardSkeleton />
-               </main>
-          </div>
-      );
-  }
-
-
-
-  // Export CSV Helper
-  // Export CSV Helper
-  const handleExportCSV = () => {
-     const rows = [
-         ["Eco-Track System Export", `Generated: ${new Date().toISOString()}`],
-         [],
-         ["PICKUP REQUESTS"],
-         ["Date", "Address", "Type", "Weight (kg)", "Status", "Driver ID"],
-         ...pickups.map(p => [
-             new Date(p.date).toISOString().split('T')[0],
-             `"${p.address}"`,
-             p.wasteTypes.join(';'),
-             p.actualWeight || 0,
-             p.status,
-             p.driverId || "Unassigned"
-         ]),
-         [],
-         ["WASTE LOGS"],
-         ["Date", "User ID", "Type", "Weight (kg)"],
-         ...wasteLogs.map(l => [
-             new Date(l.date).toISOString().split('T')[0],
-             l.userId,
-             l.type,
-             l.weight
-         ])
-     ];
-     
-     const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
-     const encodedUri = encodeURI(csvContent);
-     const link = document.createElement("a");
-     link.setAttribute("href", encodedUri);
-     link.setAttribute("download", `EcoTrack_Full_Data_${timeFilter}.csv`);
-     document.body.appendChild(link);
-     link.click();
+  const renderContent = () => {
+    switch(activeTab) {
+      case 'analytics':
+        return <AdminOverview 
+                  pickups={pickups} 
+                  wasteLogs={wasteLogs} 
+                  users={users} 
+                  drivers={drivers}
+                  activities={activities}
+                  totalCollected={totalCollected}
+                  completedCount={completedCount}
+                  activeCount={activeCount}
+                  onlineDrivers={onlineDrivers}
+                  timeFilter={timeFilter}
+                  onNavigate={setActiveTab}
+               />;
+      case 'pickups':
+        return <AdminPickups 
+                  pickups={pickups} 
+                  drivers={drivers}
+                  onUpdate={() => fetchData(true)}
+               />;
+      case 'users':
+        return <AdminUsers 
+                  users={users} 
+                  drivers={drivers}
+                  viewMode={usersViewMode}
+                  setViewMode={setUsersViewMode}
+                  onUpdate={() => fetchData(true)}
+               />;
+      case 'settings':
+        return <AdminSettings 
+                  settings={settings}
+                  onUpdate={fetchSettings}
+               />;
+      case 'map':
+        return <AdminLiveMap pickups={pickups} drivers={drivers} />;
+      case 'profile':
+        return <AdminProfile user={user} />;
+      default:
+        return <AdminOverview />;
+    }
   };
 
-
-
-  // Report Generation Logic
-  const handleGenerateReport = async () => {
-      try {
-          const loadingToast = toast({ title: "Generating Report...", description: "Capturing analytics and compiling data." });
-          
-          // Wait for UI to be fully rendered if switching tabs just happened (optional safety)
-          await new Promise(r => setTimeout(r, 500));
-
-          const doc = new jsPDF();
-          
-          // -- HEADER --
-          doc.setFontSize(22);
-          doc.setTextColor(22, 163, 74); // Green
-          doc.text("Eco-Track System Report", 14, 20);
-          
-          doc.setFontSize(10);
-          doc.setTextColor(100);
-          doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 28);
-          doc.text(`Generated by: ${user?.name || "Admin"}`, 14, 33);
-          
-          doc.line(14, 38, 196, 38); // Horizontal line
-
-          // -- SUMMARY STATS --
-          doc.setFontSize(14);
-          doc.setTextColor(0);
-          doc.text("Executive Summary", 14, 48);
-          
-          const summaryData = [
-              ["Total Collections", `${totalCollected} kg`],
-              ["Completed Pickups", completedCount],
-              ["Active Drivers", onlineDrivers],
-              ["CO2 Saved", `${(totalCollected * 1.5).toFixed(1)} kg`],
-              ["Pending Requests", pickups.filter(p => ['pending', 'assigned'].includes(p.status)).length]
-          ];
-          
-          autoTable(doc, {
-              startY: 53,
-              head: [['Metric', 'Value']],
-              body: summaryData,
-              theme: 'striped',
-              headStyles: { fillColor: [22, 163, 74] },
-              styles: { fontSize: 10 }
-          });
-          
-          let currentY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 15 : 80;
-
-          // -- CHARTS (Monthly Analysis) --
-          doc.text("Monthly Analysis", 14, currentY);
-          currentY += 10;
-
-          const trendsChart = document.getElementById('collection-trends-chart');
-          const breakdownChart = document.getElementById('waste-breakdown-chart');
-
-          if (trendsChart) {
-              try {
-                  const canvas = await html2canvas(trendsChart, { scale: 2 });
-                  const imgData = canvas.toDataURL('image/png');
-                  const imgWidth = 180; 
-                  const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                  
-                  doc.addImage(imgData, 'PNG', 15, currentY, imgWidth, imgHeight);
-                  currentY += imgHeight + 10;
-              } catch (e) {
-                  console.error("Could not capture trends chart", e);
-              }
-          }
-
-          if (breakdownChart && currentY < 250) { // Check space
-              try {
-                  const canvas = await html2canvas(breakdownChart, { scale: 2 });
-                  const imgData = canvas.toDataURL('image/png');
-                  const imgWidth = 180; 
-                  const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-                   // New page if needed
-                   if (currentY + imgHeight > 280) {
-                       doc.addPage();
-                       currentY = 20;
-                   }
-                  
-                  doc.addImage(imgData, 'PNG', 15, currentY, imgWidth, imgHeight);
-                  currentY += imgHeight + 15;
-              } catch (e) {
-                  console.error("Could not capture breakdown chart", e);
-              }
-          }
-
-          // Force new page for Tables if space is low
-          if (currentY > 200) {
-              doc.addPage();
-              currentY = 20;
-          }
-
-          // -- PICKUPS TABLE --
-          doc.text("Recent Pickups", 14, currentY);
-          
-          const pickupRows = pickups.slice(0, 20).map(p => [
-              new Date(p.date).toLocaleDateString(),
-              p.address,
-              p.wasteTypes.join(", "),
-              (p.status || "unknown").toUpperCase(),
-              p.driverId ? drivers.find(d => d._id === p.driverId)?.name || "Unknown" : "Unassigned"
-          ]);
-          
-          autoTable(doc, {
-              startY: currentY + 5,
-              head: [['Date', 'Address', 'Waste', 'Status', 'Driver']],
-              body: pickupRows,
-              theme: 'grid',
-              headStyles: { fillColor: [30, 41, 59] }, // Slate 800
-              styles: { fontSize: 8 }
-          });
-
-          // -- DRIVER FLEET --
-          const finalY2 = doc.lastAutoTable ? doc.lastAutoTable.finalY + 15 : currentY + 40;
-           // Check page break for fleet table
-           if (finalY2 > 250) {
-                doc.addPage();
-                doc.text("Fleet Status", 14, 20);
-                autoTable(doc, {
-                    startY: 25,
-                    head: [['Driver', 'Vehicle', 'Status', 'Account']],
-                    body: drivers.map(d => [
-                        d.name,
-                        d.vehicleInfo || "N/A",
-                        (d.availability || "offline").toUpperCase(),
-                        d.isActive ? "Active" : "Inactive"
-                    ]),
-                    theme: 'striped',
-                    styles: { fontSize: 8 }
-                });
-           } else {
-                doc.text("Fleet Status", 14, finalY2);
-                autoTable(doc, {
-                    startY: finalY2 + 5,
-                    head: [['Driver', 'Vehicle', 'Status', 'Account']],
-                    body: drivers.map(d => [
-                        d.name,
-                        d.vehicleInfo || "N/A",
-                        (d.availability || "offline").toUpperCase(),
-                        d.isActive ? "Active" : "Inactive"
-                    ]),
-                    theme: 'striped',
-                    styles: { fontSize: 8 }
-                });
-           }
-
-          // Save PDF
-          doc.save(`EcoTrack_Report_${new Date().toISOString().split('T')[0]}.pdf`);
-          
-          // Toast for Email Simulation
-          toast({ title: "Report Generated", description: "PDF with charts downloaded." });
-      } catch (error) {
-          console.error("Report Generation Failed:", error);
-          toast({ title: "Generation Error", description: "Failed to create report. Please try again.", variant: "destructive" });
-      }
-  };
-
-
-
-  const handleQuickAction = (action) => {
-      if (action === 'report') {
-          handleGenerateReport();
-      } else if (action === 'vehicle' || action === 'driver') {
-          setActiveTab('users');
-          setUsersViewMode('pending'); // Auto-switch to pending view
-          toast({ title: "Redirecting", description: "Showing pending approvals..." });
+  const getPageTitle = () => {
+      switch(activeTab) {
+        case 'analytics': return 'Dashboard Overview';
+        case 'pickups': return 'Pickup Management';
+        case 'users': return 'User Management';
+        case 'settings': return 'System Settings';
+        case 'map': return 'Live Operations Map';
+        case 'profile': return 'My Profile';
+        default: return 'Dashboard';
       }
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
-      <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} user={user} onLogout={handleLogout} />
-
-      <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen">
-        <div className="mb-8 flex flex-col md:flex-row justify-between items-end gap-4">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900 capitalize">
-                    {activeTab === 'livemap' ? 'Live Operations' : activeTab === 'analytics' ? 'Executive Overview' : activeTab === 'waste' ? 'Waste Logs' : activeTab === 'users' ? 'User Management' : activeTab === 'pickups' ? 'Pickup Requests' : 'System Settings'}
-                </h1>
-                <p className="text-slate-500 mt-1">
-                    System Intelligence & Management
-                </p>
-            </div>
-            
-            <div className="flex items-center gap-3">
-                 {/* Global Time Filter */}
-                 {activeTab === 'analytics' && (
-                     <div className="bg-white rounded-lg border p-1 flex items-center shadow-sm">
-                         {['today', '7d', '30d', 'all'].map((filter) => (
-                             <button
-                                 key={filter}
-                                 onClick={() => setTimeFilter(filter)}
-                                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                                     timeFilter === filter 
-                                     ? 'bg-slate-900 text-white shadow-sm' 
-                                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                                 }`}
-                             >
-                                 {filter === 'today' ? 'Today' : filter === '7d' ? '7 Days' : filter === '30d' ? '30 Days' : 'All Time'}
-                             </button>
-                         ))}
-                     </div>
-                 )}
-
-                 {/* Quick Actions (Admin Control) */}
-                 <Select onValueChange={handleQuickAction}>
-                    <SelectTrigger className="w-[160px] bg-white border-slate-200 shadow-sm">
-                        <SelectValue placeholder="Quick Actions" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="report">📄 Generate Report</SelectItem>
-                        <SelectItem value="vehicle">🚚 Approve Vehicle</SelectItem>
-                        <SelectItem value="driver">👤 Approve Driver</SelectItem>
-                    </SelectContent>
-                 </Select>
-
-                {activeTab === 'livemap' && (
-                    <div className="flex gap-2">
-                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 px-3 py-1">
-                             <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
-                             {onlineDrivers} Online
-                         </Badge>
-                         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 px-3 py-1">
-                             {pickups.filter(p => p.status === 'in_progress').length} In Transit
-                         </Badge>
-                    </div>
-                )}
-                
-                {(activeTab === 'pickups' || activeTab === 'waste') && (
-                     <Button variant="outline" size="sm" className="gap-2 hover:border-slate-400" onClick={handleExportCSV}>
-                         <Save className="h-4 w-4" /> Export CSV
-                     </Button>
-                )}
-            </div>
-        </div>
+    <div className="flex h-screen bg-slate-50 font-sans selection:bg-indigo-100 selection:text-indigo-900 overflow-hidden">
         
-        {/* Content Area */}
-        <div className="min-h-[500px]">
-            {activeTab === 'analytics' && (
-                <AdminOverview 
-                    pickups={pickups} 
-                    wasteLogs={wasteLogs} 
-                    users={users} 
-                    drivers={drivers} 
-                    activities={activities}
-                    totalCollected={totalCollected}
-                    completedCount={completedCount}
-                    activeCount={activeCount}
-                    onlineDrivers={onlineDrivers}
-                    timeFilter={timeFilter}
-                    onNavigate={(tab) => setActiveTab(tab)}
-                />
-            )}
+        {/* SIDEBAR */}
+        <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} transition-all duration-300 bg-slate-900 border-r border-slate-800 flex flex-col z-20 shadow-2xl fixed h-full lg:relative hidden md:flex`}>
+             <AdminSidebar 
+                activeTab={activeTab} 
+                setActiveTab={setActiveTab} 
+                isCollapsed={!isSidebarOpen} 
+                toggleCollapse={() => setIsSidebarOpen(!isSidebarOpen)}
+             />
+        </aside>
 
-            {activeTab === 'pickups' && (
-                <AdminPickups pickups={pickups} drivers={drivers} onUpdate={() => fetchData(true)} />
-            )}
-
-            {activeTab === 'livemap' && (
-                <AdminLiveMap drivers={drivers} pickups={pickups} />
-            )}
-
-            {activeTab === 'waste' && (
-                <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-green-600"/> Global Waste Stream</CardTitle>
-                        <CardDescription>Real-time log of all recycling activities.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-1">
-                            {wasteLogs.map(log => (
-                                <div key={log._id} className="flex justify-between items-center py-3 border-b last:border-0 hover:bg-slate-50 px-2 rounded transition-colors group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="bg-slate-100 p-2 rounded-lg font-bold text-slate-700 w-12 text-center group-hover:bg-green-100 group-hover:text-green-700 transition-colors">
-                                            {log.type.slice(0,3).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <p className="font-medium text-slate-900 capitalize">{log.type}</p>
-                                            <p className="text-xs text-slate-500">{format(new Date(log.date), "PPP p")}</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-lg">{log.weight} kg</p>
-                                        <p className="text-xs text-green-600 font-medium flex items-center justify-end gap-1"><CheckCircle className="h-3 w-3"/> Verified</p>
-                                    </div>
-                                </div>
-                            ))}
-                            {wasteLogs.length === 0 && <div className="p-8 text-center text-slate-500">No waste logs found.</div>}
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            {activeTab === 'users' && (
-                <AdminUsers users={users} drivers={drivers} onUpdate={() => fetchData(true)} viewMode={usersViewMode} setViewMode={setUsersViewMode} />
-            )}
+        {/* MAIN CONTENT AREA */}
+        <div className="flex-1 flex flex-col h-full w-full relative overflow-hidden">
             
-            {activeTab === 'settings' && (
-                <AdminSettings settings={settings} setSettings={setSettings} />
-            )}
-        </div>
+            {/* HEADER */}
+            <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200/50 flex items-center justify-between px-8 sticky top-0 z-10 shadow-sm">
+                <div className="flex items-center gap-4">
+                     <Button variant="ghost" size="icon" className="md:hidden text-slate-500" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+                        <Menu className="h-6 w-6" />
+                     </Button>
+                     <div className="flex flex-col">
+                        <div className="flex items-center gap-2 text-xs text-slate-400 font-medium uppercase tracking-wider">
+                           <span>Admin</span>
+                           <ChevronRight className="h-3 w-3" />
+                           <span>{activeTab}</span>
+                        </div>
+                        <h1 className="text-xl font-bold text-slate-800 tracking-tight">{getPageTitle()}</h1>
+                     </div>
+                </div>
 
-      </main>
+                <div className="flex items-center gap-6">
+                    <div className="relative hidden lg:block">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input 
+                            placeholder="Search data..." 
+                            className="w-64 pl-10 bg-slate-100/50 border-transparent focus:bg-white focus:border-indigo-500 rounded-full h-10 transition-all" 
+                        />
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                        <Button variant="ghost" size="icon" className="relative text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors">
+                            <Bell className="h-5 w-5" />
+                            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                        </Button>
+                        
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="pl-2 pr-4 py-1 h-auto hover:bg-slate-100 rounded-full flex items-center gap-3 border border-slate-200 bg-white">
+                                    <Avatar className="h-8 w-8 border-2 border-indigo-100">
+                                        <AvatarImage src={`https://ui-avatars.com/api/?name=${user?.name}&background=random`} />
+                                        <AvatarFallback>AD</AvatarFallback>
+                                    </Avatar>
+                                    <div className="text-left hidden sm:block">
+                                        <p className="text-sm font-bold text-slate-700 leading-none">{user?.name || "Admin"}</p>
+                                        <p className="text-[10px] text-slate-500 font-medium uppercase mt-0.5">Super Admin</p>
+                                    </div>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56">
+                                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setActiveTab('settings')} className="cursor-pointer">
+                                    <SettingsIcon className="mr-2 h-4 w-4" /> Settings
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setActiveTab('profile')} className="cursor-pointer">
+                                    <UserIcon className="mr-2 h-4 w-4" /> Profile
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer focus:text-red-600 focus:bg-red-50">
+                                    <LogOut className="mr-2 h-4 w-4" /> Log out
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </div>
+            </header>
+            
+            {/* CONTENT CANVAS */}
+            <main className="flex-1 overflow-auto p-8 custom-scrollbar bg-slate-50/50 relative">
+                  {/* Decorative Background Blob */}
+                  <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-50/50 to-transparent pointer-events-none -z-0"></div>
+                  
+                  <div className="relative z-0 max-w-7xl mx-auto pb-20">
+                    {/* Time Filter (Global) */}
+                    {activeTab === 'analytics' && (
+                        <div className="flex justify-end mb-6">
+                             <div className="bg-white p-1 rounded-lg border shadow-sm inline-flex">
+                                {['today', '7d', '30d', 'all'].map((t) => (
+                                    <button 
+                                        key={t}
+                                        onClick={() => setTimeFilter(t)}
+                                        className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                                            timeFilter === t 
+                                            ? 'bg-indigo-600 text-white shadow-md' 
+                                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        {t === '7d' ? 'Week' : t === '30d' ? 'Month' : t.toUpperCase()}
+                                    </button>
+                                ))}
+                             </div>
+                        </div>
+                    )}
+
+                    {renderContent()}
+                  </div>
+            </main>
+        </div>
     </div>
   );
 }
